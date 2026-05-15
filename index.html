@@ -554,6 +554,7 @@ input[type="file"]{display:none;}
         <div class="header-title">🗂 AI アクションアイテム</div>
         <div class="header-sub">PHD GROUP · AI POWERED</div>
       </div>
+      <button onclick="openSettings()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:18px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;">⚙️</button>
     </div>
     <div class="tab-row">
       <button class="tab-btn active" id="tab-input" onclick="switchTab('input')">
@@ -642,15 +643,47 @@ input[type="file"]{display:none;}
 <!-- ファイル添付用input -->
 <input type="file" id="file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp">
 
-<script>
+<!-- 設定モーダル -->
+<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:480px;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px;">⚙️ 初期設定</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">APIキーを設定するとAI分析が使えます。設定はこのブラウザに保存されます。</div>
+    <div style="font-size:11px;color:var(--accent);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">Anthropic APIキー</div>
+    <input type="password" id="api-key-input" placeholder="sk-ant-..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;padding:11px 13px;outline:none;font-family:var(--mono);margin-bottom:6px;">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;">取得先：<a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys</div>
+    <button onclick="saveSettings()" style="width:100%;padding:12px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:700;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">保存して始める</button>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ===================================================
+// Firebase設定
+// ===================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDXfQrEZa6rCsefCftJAHt4X-Myrc277FU",
+  authDomain: "ai-action-manager.firebaseapp.com",
+  projectId: "ai-action-manager",
+  storageBucket: "ai-action-manager.firebasestorage.app",
+  messagingSenderId: "740785871796",
+  appId: "1:740785871796:web:3aacc67e6e792c09ac70e1"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+window._db = db;
+window._fsModules = { collection, getDocs, addDoc, updateDoc, doc, orderBy, query };
+
 // ===================================================
 // 状態管理
 // ===================================================
 let currentTab = 'input';
 let currentResult = null;
-let items = JSON.parse(localStorage.getItem('ai_items') || '[]');
+let items = [];
 let chatHistories = {};
-let chatFiles = {}; // itemId → 添付ファイル配列（送信前）
+let chatFiles = {};
 let openCardId = null;
 let deferredPrompt = null;
 
@@ -672,6 +705,71 @@ function checkIOSInstallBanner() {
 }
 
 // ===================================================
+// 設定（APIキー）
+// ===================================================
+window.saveSettings = function() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key.startsWith('sk-')) { alert('APIキーは sk- から始まる文字列です'); return; }
+  localStorage.setItem('anthropic_api_key', key);
+  document.getElementById('settings-modal').style.display = 'none';
+  showToast('✅ APIキーを保存しました');
+};
+
+function getApiKey() {
+  return localStorage.getItem('anthropic_api_key') || '';
+}
+
+window.openSettings = function() {
+  const modal = document.getElementById('settings-modal');
+  modal.style.display = 'flex';
+  const saved = getApiKey();
+  if (saved) document.getElementById('api-key-input').value = saved;
+};
+
+// ===================================================
+// Firestore 読み書き
+// ===================================================
+async function loadItems() {
+  try {
+    const { collection, getDocs, orderBy, query } = window._fsModules;
+    const db = window._db;
+    const q = query(collection(db, 'items'), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    items = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+    updateListBadge();
+    if (currentTab === 'list') renderList();
+  } catch(e) {
+    console.error('Firestore読み込みエラー', e);
+  }
+}
+
+async function saveItemToFirestore(item) {
+  try {
+    const { collection, addDoc } = window._fsModules;
+    const db = window._db;
+    const { _docId, ...data } = item;
+    const ref = await addDoc(collection(db, 'items'), data);
+    item._docId = ref.id;
+    return item;
+  } catch(e) {
+    console.error('Firestore保存エラー', e);
+    showToast('⚠️ 保存に失敗しました');
+  }
+}
+
+async function updateItemInFirestore(item) {
+  try {
+    const { doc, updateDoc } = window._fsModules;
+    const db = window._db;
+    if (!item._docId) return;
+    const { _docId, ...data } = item;
+    await updateDoc(doc(db, 'items', _docId), data);
+  } catch(e) {
+    console.error('Firestore更新エラー', e);
+  }
+}
+
+// ===================================================
 // タブ切り替え
 // ===================================================
 function switchTab(tab) {
@@ -689,6 +787,9 @@ function switchTab(tab) {
 async function handleAnalyze() {
   const text = document.getElementById('ai-text').value.trim();
   if (!text) return;
+  const apiKey = getApiKey();
+  if (!apiKey) { openSettings(); return; }
+
   document.getElementById('analyze-btn').disabled = true;
   document.getElementById('loading-area').style.display = 'block';
   document.getElementById('result-area').style.display = 'none';
@@ -720,7 +821,12 @@ C=30分以内の軽微な作業`;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -780,9 +886,9 @@ function openGoogleCalendar() {
 }
 
 // ===================================================
-// 保存
+// 保存（Firestore）
 // ===================================================
-function saveItem() {
+async function saveItem() {
   if (!currentResult) return;
   const item = {
     ...currentResult,
@@ -792,16 +898,18 @@ function saveItem() {
     status: 'pending',
     createdAt: new Date().toISOString()
   };
-  items.unshift(item);
-  localStorage.setItem('ai_items', JSON.stringify(items));
-  updateListBadge();
-
-  currentResult = null;
-  document.getElementById('ai-text').value = '';
-  document.getElementById('due-date').value = '';
-  document.getElementById('result-area').style.display = 'none';
-  switchTab('list');
-  showToast('✅ 一覧に追加しました');
+  showToast('💾 保存中…');
+  const saved = await saveItemToFirestore(item);
+  if (saved) {
+    items.unshift(saved);
+    updateListBadge();
+    currentResult = null;
+    document.getElementById('ai-text').value = '';
+    document.getElementById('due-date').value = '';
+    document.getElementById('result-area').style.display = 'none';
+    switchTab('list');
+    showToast('✅ 一覧に追加しました');
+  }
 }
 
 // ===================================================
@@ -1014,7 +1122,12 @@ async function sendChat(itemId) {
     const system = buildSystem(item);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
@@ -1082,14 +1195,14 @@ function scrollChatToBottom(itemId) {
 }
 
 // ===================================================
-// ステータス切り替え
+// ステータス切り替え（Firestore）
 // ===================================================
-function toggleStatus(id) {
+async function toggleStatus(id) {
   const item = items.find(i => i.id === id);
   if (item) {
     item.status = item.status === 'done' ? 'pending' : 'done';
-    localStorage.setItem('ai_items', JSON.stringify(items));
     renderList();
+    await updateItemInFirestore(item);
   }
 }
 
@@ -1130,10 +1243,29 @@ function formatBytes(b) {
 }
 
 // ===================================================
+// グローバル公開（HTMLのonclick用）
+// ===================================================
+window.switchTab = switchTab;
+window.handleAnalyze = handleAnalyze;
+window.openGoogleCalendar = openGoogleCalendar;
+window.saveItem = saveItem;
+window.toggleCard = toggleCard;
+window.toggleStatus = toggleStatus;
+window.triggerFileInput = triggerFileInput;
+window.removeFile = removeFile;
+window.sendChat = sendChat;
+window.checkIOSInstallBanner = checkIOSInstallBanner;
+
+// ===================================================
 // 初期化
 // ===================================================
-updateListBadge();
 checkIOSInstallBanner();
+loadItems();
+
+// APIキー未設定なら設定画面を表示
+if (!getApiKey()) {
+  setTimeout(() => openSettings(), 500);
+}
 </script>
 </body>
 </html>
