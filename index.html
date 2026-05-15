@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI管理">
+<meta name="theme-color" content="#0D0F14">
+<title>AIアクションアイテム管理</title>
+
+<!-- PWA マニフェスト（インライン） -->
+<script>
+const manifestData = {
+  name: "AIアクションアイテム管理",
+  short_name: "AI管理",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#0D0F14",
+  theme_color: "#0D0F14",
+  icons: [{
+    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230D0F14'/><text y='.9em' font-size='80' x='10'>🗂</text></svg>",
+    sizes: "192x192", type: "image/svg+xml"
+  }]
+};
+const blob = new Blob([JSON.stringify(manifestData)], {type:'application/json'});
+const manifestURL = URL.createObjectURL(blob);
+document.write(`<link rel="manifest" href="${manifestURL}">`);
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+
+:root{
+  --bg:#0D0F14;
+  --surface:#161920;
+  --surface2:#1E2130;
+  --border:#2A2E3F;
+  --accent:#4F8EF7;
+  --accent2:#7C5CFC;
+  --success:#2ECC88;
+  --warn:#F7B731;
+  --danger:#F74F4F;
+  --text:#E8EAF0;
+  --muted:#7A7F96;
+  --mono:'DM Mono',monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Noto Sans JP',sans-serif;
+  overscroll-behavior:none;
+}
+
+/* ============ レイアウト ============ */
+.app{
+  display:flex;
+  flex-direction:column;
+  height:100dvh;
+  max-width:640px;
+  margin:0 auto;
+}
+
+/* ============ ヘッダー ============ */
+.header{
+  padding:16px 16px 0;
+  padding-top:calc(16px + env(safe-area-inset-top, 0px));
+  flex-shrink:0;
+}
+.header-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:14px;
+}
+.header-title{font-size:16px;font-weight:700;letter-spacing:0.03em;}
+.header-sub{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.06em;}
+
+/* タブ */
+.tab-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  background:var(--surface);
+  border-radius:12px 12px 0 0;
+  border:1px solid var(--border);
+  border-bottom:none;
+  overflow:hidden;
+}
+.tab-btn{
+  padding:11px 8px;
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  font-size:13px;
+  font-family:'Noto Sans JP',sans-serif;
+  font-weight:500;
+  cursor:pointer;
+  transition:all .18s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.tab-btn.active{
+  background:var(--accent);
+  color:#fff;
+}
+.badge{
+  background:rgba(255,255,255,0.25);
+  border-radius:10px;
+  font-size:10px;
+  padding:1px 6px;
+  font-family:var(--mono);
+}
+
+/* ============ スクロール可能エリア ============ */
+.scroll-area{
+  flex:1;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:16px;
+  padding-bottom:calc(16px + var(--safe-bottom));
+}
+
+/* ============ 入力セクション ============ */
+.input-card{
+  background:var(--surface);
+  border-radius:14px;
+  border:1px solid var(--border);
+  padding:16px;
+  margin-bottom:14px;
+}
+.section-label{
+  font-size:10px;
+  font-family:var(--mono);
+  color:var(--accent);
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  margin-bottom:10px;
+}
+textarea{
+  width:100%;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:15px;
+  line-height:1.7;
+  padding:12px 14px;
+  resize:none;
+  min-height:100px;
+  outline:none;
+  transition:border-color .18s;
+  -webkit-appearance:none;
+}
+textarea:focus{border-color:var(--accent);}
+textarea::placeholder{color:var(--muted);}
+
+.btn-primary{
+  width:100%;
+  padding:13px;
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:700;
+  font-family:'Noto Sans JP',sans-serif;
+  cursor:pointer;
+  transition:all .18s;
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.btn-primary:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed;}
+
+/* ローディング */
+.loading-wrap{margin-top:14px;}
+.loading-bar{
+  height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite linear;
+  border-radius:3px;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.loading-text{font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono);text-align:center;}
+
+/* ============ 分析結果 ============ */
+.result-card{
+  background:var(--surface);
+  border-radius:14px;
+  border:1px solid var(--border);
+  overflow:hidden;
+  margin-bottom:14px;
+  animation:fadeUp .3s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.result-header{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+.result-title{font-size:15px;font-weight:700;flex:1;line-height:1.5;}
+
+.rank-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 10px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:700;
+  font-family:var(--mono);
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.rank-S{background:rgba(247,183,49,.18);color:var(--warn);border:1px solid rgba(247,183,49,.35);}
+.rank-A{background:rgba(247,79,79,.15);color:var(--danger);border:1px solid rgba(247,79,79,.3);}
+.rank-B{background:rgba(79,142,247,.15);color:var(--accent);border:1px solid rgba(79,142,247,.3);}
+.rank-C{background:rgba(46,204,136,.12);color:var(--success);border:1px solid rgba(46,204,136,.25);}
+
+.result-body{padding:14px 16px;}
+
+.meta-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:14px;
+}
+.meta-item{
+  background:var(--surface2);
+  border-radius:9px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+}
+.meta-key{font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;font-family:var(--mono);margin-bottom:4px;}
+.meta-val{font-size:13px;font-weight:600;}
+.meta-full{grid-column:1/-1;}
+
+.steps-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.step-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.6;color:#C8CAD4;}
+.step-num{
+  display:flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--surface2);border:1px solid var(--border);
+  font-size:9px;font-family:var(--mono);color:var(--accent);flex-shrink:0;margin-top:2px;
+}
+
+/* 期日・保存 */
+.date-section{
+  border-top:1px solid var(--border);
+  padding-top:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.date-row{display:flex;align-items:center;gap:10px;}
+.date-label{font-size:12px;color:var(--muted);white-space:nowrap;}
+input[type="date"]{
+  flex:1;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--text);
+  font-size:14px;
+  padding:9px 12px;
+  font-family:'Noto Sans JP',sans-serif;
+  outline:none;
+  -webkit-appearance:none;
+  appearance:none;
+}
+
+.btn-row{display:flex;gap:8px;}
+.btn-cal{
+  flex:1;
+  padding:11px 8px;
+  background:rgba(79,142,247,.12);
+  border:1px solid rgba(79,142,247,.35);
+  border-radius:9px;
+  color:var(--accent);
+  font-size:13px;
+  font-weight:600;
+  font-family:'Noto Sans JP',sans-serif;
+  cursor:pointer;
+  transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.btn-save{
+  flex:1;
+  padding:11px 8px;
+  background:rgba(46,204,136,.12);
+  border:1px solid rgba(46,204,136,.3);
+  border-radius:9px;
+  color:var(--success);
+  font-size:13px;
+  font-weight:600;
+  font-family:'Noto Sans JP',sans-serif;
+  cursor:pointer;
+  transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+
+/* ============ 一覧 ============ */
+.list-wrap{display:flex;flex-direction:column;gap:12px;}
+.empty-state{
+  text-align:center;padding:60px 20px;
+  color:var(--muted);font-size:14px;line-height:1.8;
+}
+
+.ai-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  transition:border-color .18s;
+  animation:fadeUp .25s ease;
+}
+.ai-card.open{border-color:var(--accent2);}
+
+.ai-card-header{
+  padding:14px 16px;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  cursor:pointer;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.ai-card-info{flex:1;min-width:0;}
+.ai-card-title{
+  font-size:14px;font-weight:600;line-height:1.5;margin-bottom:6px;
+}
+.ai-card-title.done{color:var(--muted);text-decoration:line-through;}
+.ai-card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.meta-chip{
+  font-size:10px;font-family:var(--mono);color:var(--muted);
+  background:var(--surface2);padding:2px 7px;border-radius:4px;
+}
+.date-chip{
+  font-size:10px;font-family:var(--mono);color:var(--accent);
+  background:rgba(79,142,247,.1);padding:2px 7px;border-radius:4px;
+  border:1px solid rgba(79,142,247,.2);
+}
+.done-chip{
+  font-size:10px;font-family:var(--mono);color:var(--success);
+  background:rgba(46,204,136,.1);padding:2px 7px;border-radius:4px;
+}
+
+.btn-done{
+  padding:6px 11px;
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:7px;
+  color:var(--muted);
+  font-size:11px;
+  font-family:'Noto Sans JP',sans-serif;
+  cursor:pointer;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+/* ============ チャットパネル ============ */
+.chat-panel{
+  border-top:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+}
+
+.chat-msgs{
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  max-height:45vh;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+.msg{display:flex;gap:8px;align-items:flex-start;animation:fadeUp .2s ease;}
+.msg.user{flex-direction:row-reverse;}
+
+.msg-avatar{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;flex-shrink:0;margin-top:2px;
+}
+.avatar-ai{background:rgba(124,92,252,.2);color:var(--accent2);border:1px solid rgba(124,92,252,.3);}
+.avatar-user{background:rgba(79,142,247,.2);color:var(--accent);border:1px solid rgba(79,142,247,.3);}
+
+.msg-bubble{
+  padding:9px 12px;
+  border-radius:10px;
+  max-width:82%;
+  background:var(--surface2);
+  color:var(--text);
+  border:1px solid var(--border);
+  font-size:13px;
+  line-height:1.65;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.msg.user .msg-bubble{
+  background:rgba(79,142,247,.15);
+  border-color:rgba(79,142,247,.3);
+}
+
+/* 添付ファイルプレビュー（バブル内） */
+.attach-preview{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.06);
+  border-radius:7px;padding:6px 9px;
+  margin-top:6px;font-size:11px;color:var(--muted);
+  border:1px solid var(--border);
+}
+
+.thinking{display:flex;gap:4px;align-items:center;padding:2px 0;}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--accent2);animation:bounce .8s infinite;}
+.dot:nth-child(2){animation-delay:.16s;}
+.dot:nth-child(3){animation-delay:.32s;}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* チャット入力エリア */
+.chat-bottom{
+  border-top:1px solid var(--border);
+  background:var(--surface);
+}
+
+/* 添付ファイルチップ */
+.attached-files{
+  padding:8px 12px 0;
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+.file-chip{
+  display:flex;align-items:center;gap:5px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:4px 8px;
+  font-size:11px;
+  color:var(--muted);
+  max-width:160px;
+}
+.file-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file-chip-remove{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:0;flex-shrink:0;line-height:1;
+}
+
+.chat-input-row{
+  display:flex;align-items:flex-end;gap:8px;
+  padding:10px 12px;
+  padding-bottom:calc(10px + var(--safe-bottom));
+}
+
+.attach-btn{
+  width:40px;height:40px;flex-shrink:0;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--muted);
+  font-size:18px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .18s;
+}
+.attach-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.chat-input-row input[type="text"]{
+  flex:1;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+  font-size:15px;
+  font-family:'Noto Sans JP',sans-serif;
+  padding:10px 13px;
+  outline:none;
+  transition:border-color .18s;
+  -webkit-appearance:none;
+}
+.chat-input-row input[type="text"]:focus{border-color:var(--accent2);}
+
+.btn-send{
+  width:40px;height:40px;flex-shrink:0;
+  background:var(--accent2);
+  border:none;border-radius:10px;
+  color:#fff;font-size:18px;
+  cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-send:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed;}
+
+/* ============ トースト ============ */
+.toast{
+  position:fixed;
+  bottom:calc(24px + var(--safe-bottom));
+  left:50%;transform:translateX(-50%);
+  background:var(--surface);
+  border:1px solid var(--success);
+  border-radius:10px;
+  padding:11px 20px;
+  font-size:13px;color:var(--success);
+  box-shadow:0 8px 30px rgba(0,0,0,.5);
+  animation:fadeUp .25s ease;
+  z-index:999;
+  white-space:nowrap;
+}
+
+/* ============ ファイル入力（非表示） ============ */
+input[type="file"]{display:none;}
+
+/* ============ PWAインストールバナー ============ */
+.install-banner{
+  margin-bottom:14px;
+  background:rgba(79,142,247,.1);
+  border:1px solid rgba(79,142,247,.3);
+  border-radius:12px;
+  padding:12px 14px;
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;
+}
+.install-banner p{flex:1;color:#9db8f7;line-height:1.5;}
+.install-banner strong{color:var(--accent);display:block;margin-bottom:2px;}
+.btn-install{
+  padding:8px 14px;background:var(--accent);border:none;
+  border-radius:8px;color:#fff;font-size:12px;font-weight:700;
+  font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;
+}
+.btn-banner-close{
+  background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;
+  padding:0;flex-shrink:0;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">🗂 AI アクションアイテム</div>
+        <div class="header-sub">PHD GROUP · AI POWERED</div>
+      </div>
+    </div>
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-input" onclick="switchTab('input')">
+        ＋ 新規分析
+      </button>
+      <button class="tab-btn" id="tab-list" onclick="switchTab('list')">
+        一覧 <span class="badge" id="list-badge" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- スクロールエリア -->
+  <div class="scroll-area" id="scroll-area">
+
+    <!-- ===== 入力タブ ===== -->
+    <div id="pane-input">
+
+      <!-- PWAインストールバナー（iOS向け） -->
+      <div class="install-banner" id="install-banner" style="display:none">
+        <p><strong>📱 ホーム画面に追加できます</strong>Safariの「共有」→「ホーム画面に追加」でアプリとして使えます</p>
+        <button class="btn-banner-close" onclick="document.getElementById('install-banner').style.display='none'">✕</button>
+      </div>
+
+      <div class="input-card">
+        <div class="section-label">アクションアイテムを入力</div>
+        <textarea id="ai-text" placeholder="例：&#10;・〇〇社への見積もり提出（来週金曜まで）&#10;・月次レポートのデータ確認と宏治さんへ共有&#10;・新聞折込の発注先リスト整理"></textarea>
+        <button class="btn-primary" id="analyze-btn" onclick="handleAnalyze()">
+          🔍 分析する
+        </button>
+        <div id="loading-area" style="display:none" class="loading-wrap">
+          <div class="loading-bar"></div>
+          <div class="loading-text">Claudeが作業レベルを判定しています…</div>
+        </div>
+      </div>
+
+      <!-- 分析結果 -->
+      <div id="result-area" style="display:none" class="result-card">
+        <div class="result-header">
+          <div class="result-title" id="r-title"></div>
+          <span class="rank-badge" id="r-rank"></span>
+        </div>
+        <div class="result-body">
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-key">作業レベル</div>
+              <div class="meta-val" id="r-level"></div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-key">所要時間</div>
+              <div class="meta-val" id="r-time"></div>
+            </div>
+            <div class="meta-item meta-full">
+              <div class="meta-key">ランク理由</div>
+              <div class="meta-val" id="r-reason" style="font-weight:400;font-size:12px;"></div>
+            </div>
+          </div>
+          <div class="section-label">必要な手順</div>
+          <ul class="steps-list" id="r-steps"></ul>
+          <div id="r-notes" style="display:none;font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);"></div>
+          <div class="date-section">
+            <div class="date-row">
+              <span class="date-label">📅 期日</span>
+              <input type="date" id="due-date">
+            </div>
+            <div class="btn-row">
+              <button class="btn-cal" onclick="openGoogleCalendar()">📆 カレンダー登録</button>
+              <button class="btn-save" onclick="saveItem()">💾 一覧に保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== 一覧タブ ===== -->
+    <div id="pane-list" style="display:none">
+      <div class="list-wrap" id="list-wrap"></div>
+    </div>
+
+  </div><!-- /scroll-area -->
+</div><!-- /app -->
+
+<!-- トースト -->
+<div class="toast" id="toast" style="display:none"></div>
+
+<!-- ファイル添付用input -->
+<input type="file" id="file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp">
+
+<script>
+// ===================================================
+// 状態管理
+// ===================================================
+let currentTab = 'input';
+let currentResult = null;
+let items = JSON.parse(localStorage.getItem('ai_items') || '[]');
+let chatHistories = {};
+let chatFiles = {}; // itemId → 添付ファイル配列（送信前）
+let openCardId = null;
+let deferredPrompt = null;
+
+// ===================================================
+// PWA インストールプロンプト（Android Chrome）
+// ===================================================
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
+// iOS判定→バナー表示
+function checkIOSInstallBanner() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone) {
+    document.getElementById('install-banner').style.display = 'flex';
+  }
+}
+
+// ===================================================
+// タブ切り替え
+// ===================================================
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('pane-input').style.display = tab === 'input' ? 'block' : 'none';
+  document.getElementById('pane-list').style.display  = tab === 'list'  ? 'block' : 'none';
+  document.getElementById('tab-input').className = 'tab-btn' + (tab === 'input' ? ' active' : '');
+  document.getElementById('tab-list').className  = 'tab-btn' + (tab === 'list'  ? ' active' : '');
+  if (tab === 'list') renderList();
+}
+
+// ===================================================
+// Claude API 分析
+// ===================================================
+async function handleAnalyze() {
+  const text = document.getElementById('ai-text').value.trim();
+  if (!text) return;
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('loading-area').style.display = 'block';
+  document.getElementById('result-area').style.display = 'none';
+
+  try {
+    const prompt = `
+あなたは業務アクションアイテムの分析専門家です。
+以下のアクションアイテムを分析し、JSONのみで回答してください（コードブロック不要）。
+
+アクションアイテム:
+${text}
+
+{
+  "title": "簡潔なタイトル（30文字以内）",
+  "rank": "S|A|B|C",
+  "rankReason": "このランクにした理由（1〜2文）",
+  "workLevel": "作業の重さの説明",
+  "estimatedTime": "所要時間の目安（例：2〜3時間）",
+  "steps": ["手順1", "手順2", "手順3"],
+  "suggestedDeadline": "推奨期日（例：3営業日以内）",
+  "notes": "補足（なければ空文字）"
+}
+
+ランク基準:
+S=複数部署・経営判断・即日対応必須
+A=担当者外との調整・半日以上かかる重要タスク
+B=自分単独・数時間程度
+C=30分以内の軽微な作業`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    currentResult = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    renderResult(currentResult);
+  } catch(e) {
+    showToast('⚠️ 分析中にエラーが発生しました');
+  }
+
+  document.getElementById('analyze-btn').disabled = false;
+  document.getElementById('loading-area').style.display = 'none';
+}
+
+// ===================================================
+// 分析結果表示
+// ===================================================
+const RANK_EMOJI = { S:'🔴', A:'🟠', B:'🔵', C:'🟢' };
+
+function renderResult(r) {
+  document.getElementById('r-title').textContent = r.title;
+  const rb = document.getElementById('r-rank');
+  rb.textContent = `${RANK_EMOJI[r.rank]} ランク ${r.rank}`;
+  rb.className = `rank-badge rank-${r.rank}`;
+  document.getElementById('r-level').textContent  = r.workLevel;
+  document.getElementById('r-time').textContent   = r.estimatedTime;
+  document.getElementById('r-reason').textContent = r.rankReason;
+
+  const sl = document.getElementById('r-steps');
+  sl.innerHTML = r.steps.map((s,i) =>
+    `<li class="step-item"><span class="step-num">${i+1}</span><span>${s}</span></li>`
+  ).join('');
+
+  const nd = document.getElementById('r-notes');
+  if (r.notes) { nd.style.display='block'; nd.textContent='📝 '+r.notes; }
+  else nd.style.display='none';
+
+  document.getElementById('result-area').style.display = 'block';
+  document.getElementById('result-area').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ===================================================
+// Googleカレンダー
+// ===================================================
+function openGoogleCalendar() {
+  if (!currentResult) return;
+  const date = (document.getElementById('due-date').value || '').replace(/-/g,'');
+  const title = encodeURIComponent(`【AI】${currentResult.title}`);
+  const details = encodeURIComponent(currentResult.steps.join('\n'));
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}${date?`&dates=${date}/${date}`:''}&details=${details}`;
+  window.open(url, '_blank');
+  showToast('📅 Googleカレンダーを開きました');
+}
+
+// ===================================================
+// 保存
+// ===================================================
+function saveItem() {
+  if (!currentResult) return;
+  const item = {
+    ...currentResult,
+    id: Date.now(),
+    dueDate: document.getElementById('due-date').value,
+    original: document.getElementById('ai-text').value,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  items.unshift(item);
+  localStorage.setItem('ai_items', JSON.stringify(items));
+  updateListBadge();
+
+  currentResult = null;
+  document.getElementById('ai-text').value = '';
+  document.getElementById('due-date').value = '';
+  document.getElementById('result-area').style.display = 'none';
+  switchTab('list');
+  showToast('✅ 一覧に追加しました');
+}
+
+// ===================================================
+// 一覧レンダリング
+// ===================================================
+function renderList() {
+  const wrap = document.getElementById('list-wrap');
+  if (items.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">まだアクションアイテムがありません。<br>「＋ 新規分析」から追加してみてください。</div>';
+    return;
+  }
+
+  wrap.innerHTML = items.map(item => `
+    <div class="ai-card ${openCardId === item.id ? 'open' : ''}" id="card-${item.id}">
+      <div class="ai-card-header" onclick="toggleCard(${item.id})">
+        <span class="rank-badge rank-${item.rank}" style="font-size:11px">${RANK_EMOJI[item.rank]} ${item.rank}</span>
+        <div class="ai-card-info">
+          <div class="ai-card-title ${item.status==='done'?'done':''}">${item.title}</div>
+          <div class="ai-card-meta">
+            <span class="meta-chip">⏱ ${item.estimatedTime}</span>
+            ${item.dueDate ? `<span class="date-chip">📅 ${item.dueDate}</span>` : ''}
+            ${item.status==='done' ? '<span class="done-chip">✓ 完了</span>' : ''}
+          </div>
+        </div>
+        <button class="btn-done" onclick="event.stopPropagation();toggleStatus(${item.id})">
+          ${item.status==='done' ? '↩ 戻す' : '✓ 完了'}
+        </button>
+      </div>
+      ${openCardId === item.id ? renderChatPanel(item) : ''}
+    </div>
+  `).join('');
+}
+
+// ===================================================
+// チャットパネル HTML
+// ===================================================
+function renderChatPanel(item) {
+  const history = chatHistories[item.id] || [];
+  const files = chatFiles[item.id] || [];
+
+  const msgs = history.map(m => `
+    <div class="msg ${m.role}">
+      <div class="msg-avatar ${m.role==='user'?'avatar-user':'avatar-ai'}">${m.role==='user'?'👤':'✦'}</div>
+      <div class="msg-bubble">
+        ${m.content}
+        ${m.files && m.files.length ? m.files.map(f=>`
+          <div class="attach-preview">📎 ${f.name} <span style="color:var(--accent);margin-left:4px">${formatBytes(f.size)}</span></div>
+        `).join('') : ''}
+      </div>
+    </div>
+  `).join('');
+
+  const fileChips = files.map((f,i) => `
+    <div class="file-chip">
+      <span>${fileIcon(f.name)} ${f.name}</span>
+      <button class="file-chip-remove" onclick="removeFile(${item.id},${i})">✕</button>
+    </div>
+  `).join('');
+
+  return `
+    <div class="chat-panel">
+      <div class="chat-msgs" id="msgs-${item.id}">${msgs}</div>
+      <div class="chat-bottom">
+        ${files.length ? `<div class="attached-files" id="chips-${item.id}">${fileChips}</div>` : `<div id="chips-${item.id}"></div>`}
+        <div class="chat-input-row">
+          <button class="attach-btn" onclick="triggerFileInput(${item.id})" title="ファイルを添付">📎</button>
+          <input type="text" id="chat-input-${item.id}"
+            placeholder="話しかけると作業を開始します…"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat(${item.id})}"
+          >
+          <button class="btn-send" id="send-btn-${item.id}" onclick="sendChat(${item.id})">➤</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ===================================================
+// カード開閉
+// ===================================================
+function toggleCard(id) {
+  if (openCardId === id) {
+    openCardId = null;
+  } else {
+    openCardId = id;
+    // ウェルカムメッセージ
+    if (!chatHistories[id]) {
+      const item = items.find(i => i.id === id);
+      chatHistories[id] = [{
+        role: 'assistant',
+        content: `「${item.title}」の作業を始めましょう！\n\n手順：\n${item.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\n資料があれば📎で添付してください。何でも話しかけてください！`
+      }];
+    }
+  }
+  renderList();
+  if (openCardId) {
+    setTimeout(()=>{
+      const el = document.getElementById(`card-${openCardId}`);
+      if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+      scrollChatToBottom(openCardId);
+    }, 100);
+  }
+}
+
+// ===================================================
+// ファイル添付
+// ===================================================
+let pendingFileTarget = null;
+
+function triggerFileInput(itemId) {
+  pendingFileTarget = itemId;
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-input').click();
+}
+
+document.getElementById('file-input').addEventListener('change', async function() {
+  if (!pendingFileTarget) return;
+  const id = pendingFileTarget;
+  if (!chatFiles[id]) chatFiles[id] = [];
+
+  for (const file of this.files) {
+    // Base64変換
+    const b64 = await fileToBase64(file);
+    chatFiles[id].push({ name: file.name, size: file.size, type: file.type, b64 });
+  }
+
+  // チップ更新
+  const files = chatFiles[id];
+  const chipsEl = document.getElementById(`chips-${id}`);
+  if (chipsEl) {
+    chipsEl.className = 'attached-files';
+    chipsEl.innerHTML = files.map((f,i)=>`
+      <div class="file-chip">
+        <span>${fileIcon(f.name)} ${f.name}</span>
+        <button class="file-chip-remove" onclick="removeFile(${id},${i})">✕</button>
+      </div>
+    `).join('');
+  }
+});
+
+function removeFile(itemId, idx) {
+  if (chatFiles[itemId]) chatFiles[itemId].splice(idx, 1);
+  const chipsEl = document.getElementById(`chips-${itemId}`);
+  if (chipsEl) {
+    const files = chatFiles[itemId] || [];
+    chipsEl.innerHTML = files.map((f,i)=>`
+      <div class="file-chip">
+        <span>${fileIcon(f.name)} ${f.name}</span>
+        <button class="file-chip-remove" onclick="removeFile(${itemId},${i})">✕</button>
+      </div>
+    `).join('');
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ===================================================
+// チャット送信
+// ===================================================
+async function sendChat(itemId) {
+  const input = document.getElementById(`chat-input-${itemId}`);
+  const sendBtn = document.getElementById(`send-btn-${itemId}`);
+  const msg = (input?.value || '').trim();
+  const files = chatFiles[itemId] || [];
+
+  if (!msg && files.length === 0) return;
+
+  const item = items.find(i => i.id === itemId);
+  if (!chatHistories[itemId]) chatHistories[itemId] = [];
+
+  // ユーザーメッセージを履歴に追加
+  const userMsg = { role: 'user', content: msg || '（ファイルを添付しました）', files: files.map(f=>({name:f.name,size:f.size})) };
+  chatHistories[itemId].push(userMsg);
+
+  // UI更新
+  if (input) input.value = '';
+  chatFiles[itemId] = [];
+
+  // ローディング追加
+  appendThinking(itemId);
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    // メッセージ構築（ファイルあり対応）
+    const apiMessages = buildApiMessages(chatHistories[itemId].slice(0,-1), item);
+
+    // 最新メッセージのコンテンツ構築
+    const lastContent = [];
+    for (const f of files) {
+      if (f.type === 'application/pdf') {
+        lastContent.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:f.b64 } });
+      } else if (f.type.startsWith('image/')) {
+        lastContent.push({ type:'image', source:{ type:'base64', media_type:f.type, data:f.b64 } });
+      } else {
+        // テキスト系ファイルはドキュメントとして送る
+        lastContent.push({ type:'document', source:{ type:'base64', media_type:'text/plain', data:f.b64 }, title: f.name });
+      }
+    }
+    if (msg) lastContent.push({ type:'text', text: msg });
+    else lastContent.push({ type:'text', text:'添付ファイルを確認してください。このアクションアイテムの作業に役立てて解析してください。' });
+
+    apiMessages.push({ role:'user', content: lastContent.length === 1 && lastContent[0].type === 'text' ? lastContent[0].text : lastContent });
+
+    const system = buildSystem(item);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system,
+        messages: apiMessages
+      })
+    });
+    const data = await res.json();
+    const reply = data.content.map(b=>b.text||'').join('');
+
+    removeThinking(itemId);
+    chatHistories[itemId].push({ role:'assistant', content: reply });
+  } catch(e) {
+    removeThinking(itemId);
+    chatHistories[itemId].push({ role:'assistant', content:'⚠️ エラーが発生しました。もう一度試してください。' });
+  }
+
+  if (sendBtn) sendBtn.disabled = false;
+  renderList();
+  setTimeout(()=>scrollChatToBottom(itemId), 100);
+}
+
+function buildSystem(item) {
+  return `あなたはアクションアイテムを一緒に進める作業アシスタントです。
+
+【アクションアイテム】
+タイトル: ${item.title}
+作業レベル: ${item.workLevel}
+想定時間: ${item.estimatedTime}
+手順:
+${item.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}
+
+・ファイルが添付された場合は内容を読み取り、アクションアイテムの文脈で分析・活用してください
+・すぐに具体的な作業支援を行ってください（「どこから始めますか？」はNG）
+・文書下書き・連絡先整理・データ分析など、具体的なアウトプットを優先してください
+・簡潔に、箇条書きを活用して回答してください`;
+}
+
+function buildApiMessages(history, item) {
+  return history
+    .filter(m => !m.files || m.files.length === 0) // 添付なし履歴はテキストで
+    .map(m => ({ role: m.role, content: m.content }));
+}
+
+// ===================================================
+// チャットUI補助
+// ===================================================
+function appendThinking(itemId) {
+  const el = document.getElementById(`msgs-${itemId}`);
+  if (!el) return;
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.id = `thinking-${itemId}`;
+  div.innerHTML = `<div class="msg-avatar avatar-ai">✦</div><div class="msg-bubble"><div class="thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+function removeThinking(itemId) {
+  const el = document.getElementById(`thinking-${itemId}`);
+  if (el) el.remove();
+}
+function scrollChatToBottom(itemId) {
+  const el = document.getElementById(`msgs-${itemId}`);
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+// ===================================================
+// ステータス切り替え
+// ===================================================
+function toggleStatus(id) {
+  const item = items.find(i => i.id === id);
+  if (item) {
+    item.status = item.status === 'done' ? 'pending' : 'done';
+    localStorage.setItem('ai_items', JSON.stringify(items));
+    renderList();
+  }
+}
+
+// ===================================================
+// ユーティリティ
+// ===================================================
+function updateListBadge() {
+  const badge = document.getElementById('list-badge');
+  if (items.length > 0) {
+    badge.textContent = items.length;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 3000);
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['pdf'].includes(ext)) return '📄';
+  if (['doc','docx'].includes(ext)) return '📝';
+  if (['xls','xlsx'].includes(ext)) return '📊';
+  if (['csv'].includes(ext)) return '📋';
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return '🖼';
+  return '📎';
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b+'B';
+  if (b < 1024*1024) return (b/1024).toFixed(1)+'KB';
+  return (b/(1024*1024)).toFixed(1)+'MB';
+}
+
+// ===================================================
+// 初期化
+// ===================================================
+updateListBadge();
+checkIOSInstallBanner();
+</script>
+</body>
+</html>
